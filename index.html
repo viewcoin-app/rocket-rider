@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rocket Rider - Pilotez une fusée à travers un champ d'astéroïdes</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #000;
+            color: white;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        
+        #welcome-screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10;
+        }
+        
+        #animation-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            display: block; /* Visible par défaut */
+        }
+        
+        #game-container {
+            display: none;
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #game-over-screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 20;
+        }
+        
+        h1 {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #ff6b00, #ff00aa);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(255, 107, 0, 0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            margin-bottom: 40px;
+            max-width: 80%;
+            text-align: center;
+            line-height: 1.5;
+        }
+        
+        button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            background: linear-gradient(90deg, #ff6b00, #ff00aa);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin: 10px;
+        }
+        
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 107, 0, 0.5);
+        }
+        
+        #canvas {
+            background-color: #000033;
+            display: block;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            z-index: 15;
+        }
+        
+        .control-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            user-select: none;
+        }
+        
+        #fuel-gauge {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 200px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        #fuel-level {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff6b00, #ffcc00);
+            transition: width 0.3s;
+        }
+        
+        #score-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 1.5em;
+        }
+        
+        .score-text {
+            margin: 5px 0;
+            text-align: right;
+        }
+        
+        .highlight {
+            color: #ff6b00;
+            font-weight: bold;
+        }
+
+        /* Animation des étoiles */
+        #stars-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            to { transform: translateY(100vh); }
+        }
+
+        /* Canvas pour la fusée */
+        #animation-canvas {
+            display: block;
+            background-color: transparent;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5em;
+            }
+            
+            .subtitle {
+                font-size: 1em;
+                margin-bottom: 30px;
+            }
+            
+            button {
+                padding: 12px 25px;
+                font-size: 1em;
+            }
+            
+            .control-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 1.5em;
+                gap: 20px;
+            }
+            
+            #fuel-gauge {
+                width: 150px;
+                height: 15px;
+                top: 15px;
+                left: 15px;
+            }
+            
+            #score-display {
+                font-size: 1.2em;
+                top: 15px;
+                right: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animation en arrière-plan de la page d'accueil -->
+    <div id="animation-container">
+        <div id="stars-container"></div>
+        <canvas id="animation-canvas"></canvas>
+    </div>
+    
+    <!-- Écran d'accueil -->
+    <div id="welcome-screen">
+        <h1>ROCKET RIDER</h1>
+        <p class="subtitle">Pilotez une fusée réaliste à travers un dangereux champ d'astéroïdes. Évitez les obstacles, collectez du carburant et atteignez les plus hautes altitudes!</p>
+        <button id="start-btn">DÉCOLLAGE</button>
+    </div>
+    
+    <!-- Conteneur du jeu -->
+    <div id="game-container">
+        <canvas id="canvas"></canvas>
+        
+        <!-- Contrôles -->
+        <div id="controls">
+            <div class="control-btn" id="left-btn">←</div>
+            <div class="control-btn" id="right-btn">→</div>
+        </div>
+        
+        <!-- Jauge de carburant -->
+        <div id="fuel-gauge">
+            <div id="fuel-level"></div>
+        </div>
+        
+        <!-- Affichage du score -->
+        <div id="score-display">
+            <p class="score-text">Altitude: <span id="current-score" class="highlight">0</span> m</p>
+            <p class="score-text">Record: <span id="high-score" class="highlight">0</span> m</p>
+        </div>
+    </div>
+    
+    <!-- Écran de fin de jeu -->
+    <div id="game-over-screen">
+        <h1>MISSION ÉCHOUÉE</h1>
+        <p class="subtitle">Votre fusée a atteint une altitude de <span id="final-score" class="highlight">0</span> mètres</p>
+        <p class="subtitle">Votre record personnel: <span id="final-high-score" class="highlight">0</span> mètres</p>
+        <button id="restart-btn">NOUVELLE MISSION</button>
+    </div>
+    
+    <script>
+        // ANIMATION DE LA PAGE D'ACCUEIL
+        const animationCanvas = document.getElementById('animation-canvas');
+        const animationCtx = animationCanvas.getContext('2d');
+        const animationContainer = document.getElementById('animation-container');
+        
+        function resizeAnimationCanvas() {
+            animationCanvas.width = window.innerWidth;
+            animationCanvas.height = window.innerHeight;
+            drawRocketAnimation();
+        }
+        
+        function drawRocketAnimation() {
+            animationCtx.clearRect(0, 0, animationCanvas.width, animationCanvas.height);
+            
+            animationCtx.save();
+            animationCtx.translate(animationCanvas.width / 2, animationCanvas.height - 80); // Changé de 100 à 80 pour descendre la fusée
+            
+            // Corps de la fusée
+            animationCtx.fillStyle = '#ffffff';
+            animationCtx.beginPath();
+            animationCtx.moveTo(0, -40);
+            animationCtx.lineTo(13.3, 40);
+            animationCtx.lineTo(-13.3, 40);
+            animationCtx.closePath();
+            animationCtx.fill();
+            
+            // Ailerons
+            animationCtx.fillStyle = '#ff6b00';
+            animationCtx.beginPath();
+            animationCtx.moveTo(13.3, 40);
+            animationCtx.lineTo(20, 40);
+            animationCtx.lineTo(13.3, 60);
+            animationCtx.closePath();
+            animationCtx.fill();
+            
+            animationCtx.beginPath();
+            animationCtx.moveTo(-13.3, 40);
+            animationCtx.lineTo(-20, 40);
+            animationCtx.lineTo(-13.3, 60);
+            animationCtx.closePath();
+            animationCtx.fill();
+            
+            // Fenêtre
+            animationCtx.fillStyle = '#66ccff';
+            animationCtx.beginPath();
+            animationCtx.arc(0, -10, 6.6, 0, Math.PI * 2);
+            animationCtx.fill();
+            
+            // Flammes
+            animationCtx.fillStyle = '#ff6b00';
+            animationCtx.beginPath();
+            animationCtx.moveTo(6.6, 40);
+            animationCtx.lineTo(0, 60);
+            animationCtx.lineTo(-6.6, 40);
+            animationCtx.closePath();
+            animationCtx.fill();
+            
+            animationCtx.fillStyle = '#ffcc00';
+            animationCtx.beginPath();
+            animationCtx.moveTo(5, 40);
+            animationCtx.lineTo(0, 54);
+            animationCtx.lineTo(-5, 40);
+            animationCtx.closePath();
+            animationCtx.fill();
+            
+            animationCtx.restore();
+        }
+
+        // Génération des étoiles avec vitesse augmentée
+        function createStars() {
+            const container = document.getElementById('stars-container');
+            const starCount = 200;
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                
+                star.style.width = `${Math.random() * 3 + 0.5}px`;
+                star.style.height = star.style.width;
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.opacity = Math.random() * 0.7 + 0.3;
+                star.style.animationDuration = `${Math.random() * 2 + 1}s`;
+                star.style.animationDelay = `${Math.random() * -5}s`;
+                
+                container.appendChild(star);
+            }
+        }
+
+        // Étoiles filantes avec vitesse augmentée
+        function createShootingStar() {
+            const container = document.getElementById('stars-container');
+            const star = document.createElement('div');
+            star.className = 'star';
+            
+            star.style.width = '4px';
+            star.style.height = '4px';
+            star.style.left = `${10 + Math.random() * 80}%`;
+            star.style.top = '-10px';
+            star.style.opacity = '1';
+            star.style.boxShadow = '0 0 6px 2px white';
+            star.style.animationDuration = `${0.3 + Math.random() * 0.5}s`;
+            
+            container.appendChild(star);
+            
+            setTimeout(() => {
+                star.remove();
+            }, 1000 * (0.3 + Math.random() * 0.5));
+            
+            setTimeout(createShootingStar, 3000 + Math.random() * 7000);
+        }
+
+        // Initialisation animation
+        window.addEventListener('resize', resizeAnimationCanvas);
+        resizeAnimationCanvas();
+        createStars();
+        setTimeout(createShootingStar, 5000);
+
+        // JEU PRINCIPAL
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const gameContainer = document.getElementById('game-container');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const leftBtn = document.getElementById('left-btn');
+        const rightBtn = document.getElementById('right-btn');
+        const fuelLevel = document.getElementById('fuel-level');
+        const currentScoreDisplay = document.getElementById('current-score');
+        const highScoreDisplay = document.getElementById('high-score');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const finalHighScoreDisplay = document.getElementById('final-high-score');
+        
+        function resizeCanvas() {
+            try {
+                canvas.width = Math.max(window.innerWidth, 320);
+                canvas.height = Math.max(window.innerHeight, 480);
+                
+                if (gameRunning) {
+                    rocket.x = canvas.width / 2;
+                    rocket.y = canvas.height - 100;
+                }
+            } catch (error) {
+                console.error('Erreur lors du redimensionnement du canvas:', error);
+                setTimeout(resizeCanvas, 100);
+            }
+        }
+        
+        function safeInit() {
+            try {
+                resizeCanvas();
+                initStars();
+                window.addEventListener('resize', resizeCanvas);
+            } catch (error) {
+                console.error('Erreur lors de l\'initialisation:', error);
+                setTimeout(safeInit, 100);
+            }
+        }
+        
+        safeInit();
+        
+        let gameRunning = false;
+        let score = 0;
+        let highScore = 0;
+        let fuel = 100;
+        let lastTime = 0;
+        let difficulty = 1;
+        
+        try {
+            const savedScore = localStorage.getItem('rocketRiderHighScore');
+            highScore = savedScore ? Math.max(0, parseInt(savedScore)) : 0;
+        } catch (e) {
+            console.error('Erreur lors de la lecture du localStorage:', e);
+            highScore = 0;
+        }
+        
+        let rocket = {
+            x: canvas.width / 2,
+            y: canvas.height - 100,
+            width: 40,
+            height: 80,
+            angle: 0,
+            rotationSpeed: 0,
+            maxRotationSpeed: 0.2,
+            rotationAcceleration: 0.005,
+            velocity: 0,
+            maxVelocity: 5,
+            acceleration: 0.01
+        };
+        
+        let asteroids = [];
+        let fuelCanisters = [];
+        let explosions = [];
+        let stars = [];
+        
+        function initStars() {
+            try {
+                stars = [];
+                const starCount = Math.min(200, Math.floor(canvas.width * canvas.height / 1000));
+                
+                for (let i = 0; i < starCount; i++) {
+                    stars.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        size: Math.random() * 2 + 1,
+                        speed: Math.random() * 2 + 1
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur lors de l\'initialisation des étoiles:', error);
+                stars = [];
+            }
+        }
+        
+        function startGame() {
+            try {
+                welcomeScreen.style.display = 'none';
+                gameContainer.style.display = 'block';
+                gameOverScreen.style.display = 'none';
+                animationContainer.style.display = 'none'; // Cache l'animation de fond
+                gameRunning = true;
+                
+                score = 0;
+                fuel = Math.max(0, Math.min(100, 100));
+                difficulty = 1;
+                
+                rocket = {
+                    x: canvas.width / 2,
+                    y: canvas.height - 100,
+                    width: 40,
+                    height: 80,
+                    angle: 0,
+                    rotationSpeed: 0,
+                    maxRotationSpeed: 0.2,
+                    rotationAcceleration: 0.005,
+                    velocity: 0,
+                    maxVelocity: 5,
+                    acceleration: 0.01
+                };
+                
+                asteroids = [];
+                fuelCanisters = [];
+                explosions = [];
+                
+                initStars();
+                
+                updateFuelGauge();
+                updateScoreDisplay();
+                
+                lastTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            } catch (error) {
+                console.error('Erreur critique lors du démarrage du jeu:', error);
+                location.reload();
+            }
+        }
+        
+        function endGame() {
+            try {
+                gameRunning = false;
+                gameContainer.style.display = 'none';
+                gameOverScreen.style.display = 'flex';
+                animationContainer.style.display = 'block'; // Réaffiche l'animation de fond
+                
+                finalScoreDisplay.textContent = Math.floor(Math.max(0, score));
+                finalHighScoreDisplay.textContent = Math.floor(Math.max(0, highScore));
+                
+                try {
+                    if (score > highScore) {
+                        highScore = score;
+                        localStorage.setItem('rocketRiderHighScore', highScore.toString());
+                    }
+                } catch (e) {
+                    console.error('Erreur lors de l\'écriture dans localStorage:', e);
+                }
+            } catch (error) {
+                console.error('Erreur lors de la fin du jeu:', error);
+            }
+        }
+        
+        function updateFuelGauge() {
+            try {
+                const safeFuel = Math.max(0, Math.min(100, fuel));
+                fuelLevel.style.width = `${safeFuel}%`;
+                
+                if (safeFuel < 20) {
+                    fuelLevel.style.background = 'linear-gradient(90deg, #ff0000, #ff6b00)';
+                } else {
+                    fuelLevel.style.background = 'linear-gradient(90deg, #ff6b00, #ffcc00)';
+                }
+            } catch (error) {
+                console.error('Erreur lors de la mise à jour de la jauge de carburant:', error);
+            }
+        }
+        
+        function updateScoreDisplay() {
+            try {
+                currentScoreDisplay.textContent = Math.floor(Math.max(0, score));
+                highScoreDisplay.textContent = Math.floor(Math.max(0, highScore));
+            } catch (error) {
+                console.error('Erreur lors de la mise à jour du score:', error);
+            }
+        }
+        
+        function generateAsteroid() {
+            try {
+                const size = Math.random() * 50 + 30;
+                const x = Math.random() * (canvas.width - size);
+                const y = -size;
+                const speed = Math.random() * 3 + 1 * difficulty;
+                
+                const vertices = [];
+                const vertexCount = Math.floor(Math.random() * 5) + 5;
+                for (let i = 0; i < vertexCount; i++) {
+                    const angle = (i / vertexCount) * Math.PI * 2;
+                    const radius = size / 2 * (0.7 + Math.random() * 0.3);
+                    vertices.push({
+                        x: Math.cos(angle) * radius,
+                        y: Math.sin(angle) * radius
+                    });
+                }
+                
+                asteroids.push({
+                    x,
+                    y,
+                    size,
+                    speed,
+                    vertices,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.02
+                });
+            } catch (error) {
+                console.error('Erreur lors de la génération d\'astéroïde:', error);
+            }
+        }
+        
+        function generateFuelCanister() {
+            try {
+                const size = 30;
+                const x = Math.random() * (canvas.width - size);
+                const y = -size;
+                const speed = Math.random() * 2 + 1;
+                
+                fuelCanisters.push({
+                    x,
+                    y,
+                    size,
+                    speed
+                });
+            } catch (error) {
+                console.error('Erreur lors de la génération de bidon de carburant:', error);
+            }
+        }
+        
+        function createExplosion(x, y, size) {
+            try {
+                const particles = [];
+                const particleCount = 30;
+                
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push({
+                        x: 0,
+                        y: 0,
+                        size: Math.random() * 5 + 2,
+                        color: `hsl(${Math.random() * 30 + 20}, 100%, 50%)`,
+                        speed: Math.random() * 3 + 1,
+                        angle: Math.random() * Math.PI * 2,
+                        life: 100
+                    });
+                }
+                
+                explosions.push({
+                    x,
+                    y,
+                    size,
+                    particles,
+                    life: 100
+                });
+            } catch (error) {
+                console.error('Erreur lors de la création d\'explosion:', error);
+            }
+        }
+        
+        function drawRocket() {
+            try {
+                ctx.save();
+                ctx.translate(rocket.x, rocket.y);
+                ctx.rotate(rocket.angle);
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(0, -rocket.height / 2);
+                ctx.lineTo(rocket.width / 3, rocket.height / 2);
+                ctx.lineTo(-rocket.width / 3, rocket.height / 2);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.fillStyle = '#ff6b00';
+                ctx.beginPath();
+                ctx.moveTo(rocket.width / 3, rocket.height / 2);
+                ctx.lineTo(rocket.width / 2, rocket.height / 2);
+                ctx.lineTo(rocket.width / 3, rocket.height / 2 + 20);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.moveTo(-rocket.width / 3, rocket.height / 2);
+                ctx.lineTo(-rocket.width / 2, rocket.height / 2);
+                ctx.lineTo(-rocket.width / 3, rocket.height / 2 + 20);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.fillStyle = '#66ccff';
+                ctx.beginPath();
+                ctx.arc(0, -rocket.height / 4, rocket.width / 6, 0, Math.PI * 2);
+                ctx.fill();
+                
+                if (rocket.velocity > 0) {
+                    const flameHeight = rocket.velocity * 10;
+                    ctx.fillStyle = '#ff6b00';
+                    ctx.beginPath();
+                    ctx.moveTo(rocket.width / 6, rocket.height / 2);
+                    ctx.lineTo(0, rocket.height / 2 + flameHeight);
+                    ctx.lineTo(-rocket.width / 6, rocket.height / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.beginPath();
+                    ctx.moveTo(rocket.width / 8, rocket.height / 2);
+                    ctx.lineTo(0, rocket.height / 2 + flameHeight * 0.7);
+                    ctx.lineTo(-rocket.width / 8, rocket.height / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            } catch (error) {
+                console.error('Erreur lors du dessin de la fusée:', error);
+                ctx.restore();
+            }
+        }
+        
+        function drawAsteroid(asteroid) {
+            try {
+                ctx.save();
+                ctx.translate(asteroid.x + asteroid.size / 2, asteroid.y + asteroid.size / 2);
+                ctx.rotate(asteroid.rotation);
+                
+                ctx.fillStyle = '#888888';
+                ctx.beginPath();
+                ctx.moveTo(asteroid.vertices[0].x, asteroid.vertices[0].y);
+                for (let i = 1; i < asteroid.vertices.length; i++) {
+                    ctx.lineTo(asteroid.vertices[i].x, asteroid.vertices[i].y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.fillStyle = '#666666';
+                for (let i = 0; i < 3; i++) {
+                    const x = (Math.random() - 0.5) * asteroid.size / 2;
+                    const y = (Math.random() - 0.5) * asteroid.size / 2;
+                    const size = Math.random() * 5 + 2;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            } catch (error) {
+                console.error('Erreur lors du dessin d\'astéroïde:', error);
+                ctx.restore();
+            }
+        }
+        
+        function drawFuelCanister(canister) {
+            try {
+                ctx.save();
+                ctx.translate(canister.x + canister.size / 2, canister.y + canister.size / 2);
+                
+                ctx.fillStyle = '#ffcc00';
+                ctx.fillRect(-canister.size / 2, -canister.size / 2, canister.size, canister.size);
+                
+                ctx.fillStyle = '#ff6b00';
+                ctx.fillRect(-canister.size / 2, -canister.size / 2, canister.size, canister.size / 5);
+                ctx.fillRect(-canister.size / 2, canister.size / 3, canister.size, canister.size / 5);
+                
+                ctx.strokeStyle = '#ff6b00';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, -canister.size / 4, canister.size / 4, Math.PI, 0);
+                ctx.stroke();
+                
+                ctx.restore();
+            } catch (error) {
+                console.error('Erreur lors du dessin du bidon de carburant:', error);
+                ctx.restore();
+            }
+        }
+        
+        function drawExplosion(explosion) {
+            try {
+                ctx.save();
+                ctx.translate(explosion.x, explosion.y);
+                
+                for (const particle of explosion.particles) {
+                    const progress = 1 - (explosion.life / 100);
+                    const x = particle.x + Math.cos(particle.angle) * particle.speed * progress * 10;
+                    const y = particle.y + Math.sin(particle.angle) * particle.speed * progress * 10;
+                    
+                    ctx.globalAlpha = explosion.life / 100;
+                    ctx.fillStyle = particle.color;
+                    ctx.beginPath();
+                    ctx.arc(x, y, particle.size * (1 - progress), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            } catch (error) {
+                console.error('Erreur lors du dessin d\'explosion:', error);
+                ctx.restore();
+            }
+        }
+        
+        function drawStars() {
+            try {
+                ctx.fillStyle = '#ffffff';
+                for (const star of stars) {
+                    ctx.globalAlpha = Math.random() * 0.8 + 0.2;
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            } catch (error) {
+                console.error('Erreur lors du dessin des étoiles:', error);
+                ctx.globalAlpha = 1;
+            }
+        }
+        
+        function checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
+            try {
+                return x1 < x2 + w2 &&
+                       x1 + w1 > x2 &&
+                       y1 < y2 + h2 &&
+                       y1 + h1 > y2;
+            } catch (error) {
+                console.error('Erreur lors de la détection de collision:', error);
+                return false;
+            }
+        }
+        
+        function gameLoop(timestamp) {
+            try {
+                if (!gameRunning) return;
+                
+                const deltaTime = timestamp - lastTime;
+                lastTime = timestamp;
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                drawStars();
+                
+                rocket.angle += rocket.rotationSpeed;
+                rocket.rotationSpeed *= 0.98;
+                
+                if (rocket.angle > Math.PI / 4) rocket.angle = Math.PI / 4;
+                if (rocket.angle < -Math.PI / 4) rocket.angle = -Math.PI / 4;
+                
+                if (Math.abs(rocket.angle) > 0.01) {
+                    rocket.rotationSpeed -= rocket.angle * 0.0005;
+                }
+                
+                rocket.x += Math.sin(rocket.angle) * 5;
+                
+                rocket.x = Math.max(rocket.width / 2, Math.min(canvas.width - rocket.width / 2, rocket.x));
+                
+                if (fuel > 0) {
+                    rocket.velocity += rocket.acceleration;
+                    rocket.velocity = Math.min(rocket.velocity, rocket.maxVelocity);
+                    
+                    fuel = Math.max(0, fuel - 0.02);
+                    updateFuelGauge();
+                } else {
+                    rocket.velocity -= 0.02;
+                    rocket.velocity = Math.max(rocket.velocity, -rocket.maxVelocity);
+                }
+                
+                for (const star of stars) {
+                    star.y += star.speed * (rocket.velocity / rocket.maxVelocity);
+                    if (star.y > canvas.height) {
+                        star.y = 0;
+                        star.x = Math.random() * canvas.width;
+                    }
+                }
+                
+                if (Math.random() < 0.01 * difficulty) {
+                    generateAsteroid();
+                }
+                
+                if (Math.random() < 0.005 && fuelCanisters.length < 3) {
+                    generateFuelCanister();
+                }
+                
+                for (let i = asteroids.length - 1; i >= 0; i--) {
+                    const asteroid = asteroids[i];
+                    asteroid.y += asteroid.speed;
+                    asteroid.rotation += asteroid.rotationSpeed;
+                    
+                    drawAsteroid(asteroid);
+                    
+                    if (checkCollision(
+                        rocket.x - rocket.width / 2, rocket.y - rocket.height / 2, rocket.width, rocket.height,
+                        asteroid.x, asteroid.y, asteroid.size, asteroid.size
+                    )) {
+                        createExplosion(rocket.x, rocket.y, 100);
+                        endGame();
+                        return;
+                    }
+                    
+                    if (asteroid.y > canvas.height) {
+                        asteroids.splice(i, 1);
+                    }
+                }
+                
+                for (let i = fuelCanisters.length - 1; i >= 0; i--) {
+                    const canister = fuelCanisters[i];
+                    canister.y += canister.speed;
+                    
+                    drawFuelCanister(canister);
+                    
+                    if (checkCollision(
+                        rocket.x - rocket.width / 2, rocket.y - rocket.height / 2, rocket.width, rocket.height,
+                        canister.x, canister.y, canister.size, canister.size
+                    )) {
+                        fuel = Math.min(100, fuel + 20);
+                        updateFuelGauge();
+                        fuelCanisters.splice(i, 1);
+                    }
+                    
+                    if (canister.y > canvas.height) {
+                        fuelCanisters.splice(i, 1);
+                    }
+                }
+                
+                for (let i = explosions.length - 1; i >= 0; i--) {
+                    const explosion = explosions[i];
+                    explosion.life -= 1;
+                    
+                    drawExplosion(explosion);
+                    
+                    if (explosion.life <= 0) {
+                        explosions.splice(i, 1);
+                    }
+                }
+                
+                drawRocket();
+                
+                score += rocket.velocity;
+                
+                difficulty = 1 + Math.floor(score / 5000) * 0.2;
+                
+                updateScoreDisplay();
+                
+                if (fuel <= 0 && rocket.velocity < -rocket.maxVelocity * 0.9) {
+                    createExplosion(rocket.x, rocket.y, 100);
+                    endGame();
+                    return;
+                }
+                
+                requestAnimationFrame(gameLoop);
+            } catch (error) {
+                console.error('Erreur critique dans la boucle de jeu:', error);
+                try {
+                    endGame();
+                } catch (e) {
+                    console.error('Erreur lors de la tentative de récupération:', e);
+                    location.reload();
+                }
+            }
+        }
+        
+        function safeAddEventListener(element, event, handler) {
+            try {
+                element.addEventListener(event, handler);
+            } catch (error) {
+                console.error(`Erreur lors de l'ajout de l'événement ${event}:`, error);
+            }
+        }
+        
+        safeAddEventListener(startBtn, 'click', startGame);
+        safeAddEventListener(restartBtn, 'click', startGame);
+        
+        safeAddEventListener(leftBtn, 'mousedown', () => {
+            rocket.rotationSpeed -= rocket.rotationAcceleration;
+        });
+        
+        safeAddEventListener(leftBtn, 'touchstart', (e) => {
+            e.preventDefault();
+            rocket.rotationSpeed -= rocket.rotationAcceleration;
+        });
+        
+        safeAddEventListener(rightBtn, 'mousedown', () => {
+            rocket.rotationSpeed += rocket.rotationAcceleration;
+        });
+        
+        safeAddEventListener(rightBtn, 'touchstart', (e) => {
+            e.preventDefault();
+            rocket.rotationSpeed += rocket.rotationAcceleration;
+        });
+        
+        safeAddEventListener(document, 'keydown', (e) => {
+            if (!gameRunning) return;
+            
+            if (e.key === 'ArrowLeft') {
+                rocket.rotationSpeed -= rocket.rotationAcceleration;
+            } else if (e.key === 'ArrowRight') {
+                rocket.rotationSpeed += rocket.rotationAcceleration;
+            }
+        });
+    </script>
+</body>
+</html>
